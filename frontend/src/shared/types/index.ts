@@ -12,6 +12,11 @@ export interface User {
   created_at: string;
 }
 
+export interface AuthResponse {
+  user: User;
+  token: string;
+}
+
 export interface RepairRequest {
   id: string;
   client_id: string;
@@ -28,6 +33,11 @@ export interface RepairRequest {
   created_at: string;
   updated_at: string;
   attachments?: Attachment[];
+}
+
+export interface RequestDetail extends RepairRequest {
+  comments?: Comment[];
+  audit_logs?: AuditLog[];
 }
 
 export interface Comment {
@@ -92,5 +102,18 @@ export interface StatusStats {
   in_progress: number;
   paused: number;
   done: number;
+}
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+  totalPages?: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: PaginationMeta;
 }
 

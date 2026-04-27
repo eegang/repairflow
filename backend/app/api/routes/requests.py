@@ -3,10 +3,9 @@ import math
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.db.database import get_db
+from app.db.database import get_db_facade
+from app.db.facade import DatabaseFacade
 from app.core.dependencies import get_current_user
 from app.domain.models import AuditLog, Comment, NotificationType, RepairRequest, Role, Status, User
 from app.domain.schemas import (
@@ -31,16 +30,6 @@ from app.services.services import (
 )
 
 router = APIRouter(prefix="/requests", tags=["requests"])
-
-
-def request_query_with_relations():
-    return select(RepairRequest).options(
-        selectinload(RepairRequest.attachments),
-        selectinload(RepairRequest.comments).selectinload(Comment.author),
-        selectinload(RepairRequest.audit_logs).selectinload(AuditLog.performer),
-    )
-
-
 @router.get("", response_model=PaginatedResponse)
 async def get_requests(
     page: int = Query(1, ge=1),
@@ -52,7 +41,7 @@ async def get_requests(
     client_id: str | None = None,
     assigned_to: str | None = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: DatabaseFacade = Depends(get_db_facade),
 ):
     query = select(RepairRequest)
     count_query = select(func.count(RepairRequest.id))
@@ -110,7 +99,7 @@ async def get_request_stats(
     filter_id: str | None = None,
     filter_type: str | None = Query(None, pattern="^(client|technician)$"),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: DatabaseFacade = Depends(get_db_facade),
 ):
     query = select(RepairRequest.status, func.count(RepairRequest.id)).group_by(RepairRequest.status)
 
@@ -132,12 +121,9 @@ async def get_request_stats(
 async def get_request(
     request_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: DatabaseFacade = Depends(get_db_facade),
 ):
-    result = await db.execute(
-        request_query_with_relations().where(RepairRequest.id == request_id)
-    )
-    request = result.scalar_one_or_none()
+    request = await db.get_request_detail_by_id(request_id)
 
     if request is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
@@ -192,7 +178,7 @@ async def get_request(
 async def create_request(
     request_data: RequestCreate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: DatabaseFacade = Depends(get_db_facade),
 ):
     new_request = RepairRequest(
         client_id=current_user.id,
@@ -208,8 +194,7 @@ async def create_request(
     db.add(new_request)
     await db.flush()
 
-    managers = await db.execute(select(User).where(User.role == Role.manager, User.is_active.is_(True)))
-    for manager in managers.scalars().all():
+    for manager in await db.get_active_managers():
         await create_notification(
             db,
             user_id=manager.id,
@@ -229,7 +214,7 @@ async def update_request(
     request_id: str,
     update_data: RequestUpdate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: DatabaseFacade = Depends(get_db_facade),
 ):
     request = await get_request_or_404(db, request_id)
     ensure_request_access(current_user, request)
@@ -269,17 +254,14 @@ async def assign_technician(
     request_id: str,
     payload: RequestAssign,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: DatabaseFacade = Depends(get_db_facade),
 ):
     if current_user.role != Role.manager:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only managers can assign technicians")
 
     request = await get_request_or_404(db, request_id)
 
-    tech_result = await db.execute(
-        select(User).where(User.id == payload.technician_id, User.role == Role.technician, User.is_active.is_(True))
-    )
-    technician = tech_result.scalar_one_or_none()
+    technician = await db.get_active_technician_by_id(payload.technician_id)
     if technician is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Technician not found")
 
@@ -315,7 +297,7 @@ async def update_request_status(
     request_id: str,
     payload: RequestStatusUpdate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: DatabaseFacade = Depends(get_db_facade),
 ):
     request = await get_request_or_404(db, request_id)
     ensure_request_access(current_user, request)

@@ -4,11 +4,9 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.db.database import get_db
+from app.db.database import get_db_facade
+from app.db.facade import DatabaseFacade
 from app.core.dependencies import get_current_user
 from app.domain.models import Attachment, AuditLog, User
 from app.domain.schemas import AttachmentOut, AuditLogOut
@@ -25,7 +23,7 @@ async def upload_file(
     request_id: str,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: DatabaseFacade = Depends(get_db_facade),
 ):
     request = await get_request_or_404(db, request_id)
     ensure_request_access(current_user, request)
@@ -65,35 +63,22 @@ async def upload_file(
 async def get_attachments(
     request_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: DatabaseFacade = Depends(get_db_facade),
 ):
     request = await get_request_or_404(db, request_id)
     ensure_request_access(current_user, request)
-
-    result = await db.execute(
-        select(Attachment)
-        .where(Attachment.request_id == request_id)
-        .order_by(Attachment.created_at)
-    )
-    return result.scalars().all()
+    return await db.get_attachments_for_request(request_id)
 
 
 @router.get("/audit", response_model=list[AuditLogOut])
 async def get_audit_log(
     request_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: DatabaseFacade = Depends(get_db_facade),
 ):
     request = await get_request_or_404(db, request_id)
     ensure_request_access(current_user, request)
-
-    result = await db.execute(
-        select(AuditLog)
-        .where(AuditLog.request_id == request_id)
-        .options(selectinload(AuditLog.performer))
-        .order_by(AuditLog.created_at.desc())
-    )
-    logs = result.scalars().all()
+    logs = await db.get_audit_logs_for_request(request_id)
 
     return [
         AuditLogOut(

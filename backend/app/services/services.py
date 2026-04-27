@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.facade import DatabaseFacade
 from app.domain.models import AuditLog, Notification, NotificationType, RepairRequest, Role, User
 
 
@@ -17,9 +18,12 @@ STATUS_TRANSITIONS: dict[str, list[str]] = {
 }
 
 
-async def get_request_or_404(db: AsyncSession, request_id: str) -> RepairRequest:
-    result = await db.execute(select(RepairRequest).where(RepairRequest.id == request_id))
-    request = result.scalar_one_or_none()
+async def get_request_or_404(db: AsyncSession | DatabaseFacade, request_id: str) -> RepairRequest:
+    if isinstance(db, DatabaseFacade):
+        request = await db.get_request_by_id(request_id)
+    else:
+        result = await db.execute(select(RepairRequest).where(RepairRequest.id == request_id))
+        request = result.scalar_one_or_none()
     if request is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
     return request

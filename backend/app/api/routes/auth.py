@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.database import get_db
+from app.db.database import get_db_facade
+from app.db.facade import DatabaseFacade
 from app.domain.models import User
 from app.domain.schemas import UserCreate, UserOut, LoginRequest, AuthResponse
 from app.core.auth_utils import verify_password, hash_password, create_access_token
@@ -11,9 +10,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=AuthResponse)
-async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == user_data.email))
-    existing_user = result.scalar_one_or_none()
+async def register(user_data: UserCreate, db: DatabaseFacade = Depends(get_db_facade)):
+    existing_user = await db.get_user_by_email(user_data.email)
     
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
@@ -41,9 +39,8 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == login_data.email))
-    user = result.scalar_one_or_none()
+async def login(login_data: LoginRequest, db: DatabaseFacade = Depends(get_db_facade)):
+    user = await db.get_user_by_email(login_data.email)
     
     if not user or not verify_password(login_data.password, user.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")

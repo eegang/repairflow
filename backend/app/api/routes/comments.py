@@ -1,9 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.db.database import get_db
+from app.db.database import get_db_facade
+from app.db.facade import DatabaseFacade
 from app.core.dependencies import get_current_user
 from app.domain.models import Comment, User
 from app.domain.schemas import CommentCreate, CommentOut
@@ -21,23 +19,14 @@ router = APIRouter(prefix="/requests/{request_id}/comments", tags=["comments"])
 async def get_comments(
     request_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: DatabaseFacade = Depends(get_db_facade),
 ):
     request = await get_request_or_404(db, request_id)
     ensure_request_access(current_user, request)
-
-    query = (
-        select(Comment)
-        .where(Comment.request_id == request_id)
-        .options(selectinload(Comment.author))
-        .order_by(Comment.created_at)
+    comments = await db.get_comments_for_request(
+        request_id,
+        include_internal=current_user.role.value != "client",
     )
-
-    if current_user.role.value == "client":
-        query = query.where(Comment.is_internal.is_(False))
-
-    result = await db.execute(query)
-    comments = result.scalars().all()
 
     return [
         CommentOut(
@@ -57,7 +46,7 @@ async def create_comment(
     request_id: str,
     comment_data: CommentCreate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: DatabaseFacade = Depends(get_db_facade),
 ):
     request = await get_request_or_404(db, request_id)
     ensure_request_access(current_user, request)
