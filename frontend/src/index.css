@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fafafa;
+  --foreground: #111111;
+  --surface: #ffffff;
+  --surface-hover: #f5f5f5;
+  --border: #e5e5e5;
+  --border-strong: #d4d4d4;
+  --muted: #737373;
+  --muted-bg: #f0f0f0;
+  --accent: #111111;
+  --accent-foreground: #ffffff;
+  --radius: 8px;
+
+  --status-new: #3b82f6;
+  --status-new-bg: #eff6ff;
+  --status-progress: #f59e0b;
+  --status-progress-bg: #fffbeb;
+  --status-paused: #ef4444;
+  --status-paused-bg: #fef2f2;
+  --status-done: #10b981;
+  --status-done-bg: #ecfdf5;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  transition: all 200ms ease-out;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}

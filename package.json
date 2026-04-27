@@ -1,0 +1,15 @@
+{
+  "name": "repairflow",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "powershell -ExecutionPolicy Bypass -File .\\scripts\\start-stack.ps1",
+    "dev:frontend": "npm --prefix frontend run dev -- --host 127.0.0.1 --port 5173",
+    "dev:backend": "powershell -ExecutionPolicy Bypass -Command \"Set-Location backend; .\\venv\\Scripts\\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000\"",
+    "dev:stop": "powershell -ExecutionPolicy Bypass -File .\\scripts\\stop-stack.ps1",
+    "db:reseed:local": "powershell -ExecutionPolicy Bypass -File .\\scripts\\reseed-local-db.ps1",
+    "test:backend": "powershell -ExecutionPolicy Bypass -File .\\scripts\\run-backend-tests.ps1",
+    "build": "npm --prefix frontend run build",
+    "start": "powershell -ExecutionPolicy Bypass -File .\\scripts\\start-stack.ps1"
+  }
+}
