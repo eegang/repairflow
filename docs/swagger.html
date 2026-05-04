@@ -14,17 +14,25 @@
   <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
   <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
   <script>
-    const path = window.location.pathname;
-    const specUrl = path.includes("/docs/")
-      ? "./openapi.json"
-      : "./docs/openapi.json";
+    async function resolveSpecUrl() {
+      const candidates = ["./openapi.json", "./docs/openapi.json"];
+      for (const candidate of candidates) {
+        try {
+          const resp = await fetch(candidate, { method: "HEAD" });
+          if (resp.ok) return candidate;
+        } catch (_) {}
+      }
+      return "./openapi.json";
+    }
 
-    window.ui = SwaggerUIBundle({
-      url: specUrl,
-      dom_id: "#swagger-ui",
-      deepLinking: true,
-      presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
-      layout: "BaseLayout"
+    resolveSpecUrl().then((specUrl) => {
+      window.ui = SwaggerUIBundle({
+        url: specUrl,
+        dom_id: "#swagger-ui",
+        deepLinking: true,
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: "BaseLayout"
+      });
     });
   </script>
 </body>
